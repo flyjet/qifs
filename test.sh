@@ -1,4 +1,4 @@
-sudo rmmod qifs1
-sudo insmod qifs1.ko
+sudo rmmod qifs
+sudo insmod qifs.ko
 lsmod |grep qifs
 sudo mount -t qifs /tmp /tmp/qifs
