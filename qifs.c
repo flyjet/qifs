@@ -273,7 +273,7 @@ static void qifs_put_super(struct super_block *sb)
 }
 
 
-//superblock operations, both of which are generic kernel ops
+//superblock operations
 //qifs_ops
 static struct super_operations qifs_ops = 
 {     
