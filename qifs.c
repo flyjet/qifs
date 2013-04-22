@@ -8,6 +8,7 @@
 #include <linux/vfs.h>
 #include <linux/slab.h>
 
+#include <linux/backing-dev.h>
 
 #include <linux/pagemap.h>  /*PAGE_CACHE_SIZE*/
 
@@ -196,6 +197,14 @@ static struct address_space_operations qifs_aops =
 };
 
 
+static struct backing_dev_info qifs_backing_dev_info=
+{
+    .ra_pages     =0,     //no readahead   
+    .capabilities =BDI_CAP_NO_ACCT_DIRTY |BDI_CAP_NO_WRITEBACK |BDI_CAP_MAP_DIRECT |
+                BDI_CAP_MAP_COPY | BDI_CAP_READ_MAP |BDI_CAP_WRITE_MAP | 
+                BDI_CAP_EXEC_MAP,
+};    
+
 
 //file operations for file
 static struct file_operations qifs_file_operations =
@@ -242,7 +251,7 @@ static struct inode_operations qifs_dir_inode_ops =
     .link       = simple_link,
     .unlink     = simple_unlink,
     .mkdir      = qifs_mkdir,        //need define     
-//  .rmdir      = simple_rmdir,
+    .rmdir      = simple_rmdir,
     .mknod      = qifs_mknod,       //need define      
 //  rename      = simple_rename,
 };    
@@ -272,6 +281,7 @@ static struct inode* qifs_get_inode(struct super_block *sb, int mode, dev_t dev)
         printk(KERN_INFO   "qifs: to set inode operations \n");
 
         ret->i_mapping->a_ops = &qifs_aops;     //need to define;
+        ret->i_mapping->backing_dev_info =&qifs_backing_dev_info;  //need to define;
 
         switch(mode & S_IFMT)
         {
@@ -401,7 +411,7 @@ static struct file_system_type qi_fs_type =
 //	.onwer     = THIS_MODULE,
     .name      = "qifs",	         // name to use at mount time		
 	.mount     =  qi_mount,          // at mount time, to initializes and sets up a superblock
-	.kill_sb   =  kill_block_super,  //generic function, at umount time to clean up
+	.kill_sb   =  kill_litter_super,  //generic function, at umount time to clean up
 //    .fs_flags  =  FS_REQUIRES_DEV    //public flags for file_system_type  =1
 };
 
