@@ -53,27 +53,29 @@ static void *qifs_read(struct super_block *sb, unsigned int offset, unsigned int
 
 
 //qifs_file_open
-static int qifs_file_open(struct inode *inode, struct file *filp)
-{
-	    return generic_file_open(inode, filp);
-}
+//static int qifs_file_open(struct inode *inode, struct file *filp)
+//{
+//	    return generic_file_open(inode, filp);
+//}
 
-/*
-//qifs_read_file
-static ssize_t qifs_read_file(struct file *filp, char *buf,
+
+
+//qifs_file_read
+static ssize_t qifs_file_read(struct file *filp, char *buf,
 	 	                 size_t count, loff_t *offset)
 {
-	
+   printk(KERN_INFO "qifs: qifs_do_sync_read \n");
+   return do_sync_read(filp, buf, count, offset);
 }
 
-//qifs_write_file
-static ssize_t qifs_write_file(struct file *filp, const char *buf,
+//qifs_file_write
+static ssize_t qifs_file_write(struct file *filp, const char *buf,
 		size_t count, loff_t *offset)
 {
-	
-}
 
-*/
+   printk(KERN_INFO "qifs: qifs_do_sync_write \n");
+   return do_sync_write(filp, buf, count, offset);
+}
 
 
 
@@ -155,12 +157,42 @@ static int qifs_mkdir(struct inode *dir, struct dentry *dentry, int mode)
 
 }    
 
+//qifs_readpage
+static int qifs_readpage(struct file *file, struct page *page)
+{
+    printk(KERN_INFO "qifs: qifs_readpage\n");  
+    return simple_readpage(file, page);
+}
+
+
+//qifs_write_begin
+static int qifs_write_begin(struct file *file, struct address_space *mapping,
+                                 loff_t pos, unsigned len, unsigned flags,
+                                 struct page **pagep, void **fsdata)
+{
+     printk(KERN_INFO "qifs: qifs_write_begin\n");
+     return simple_write_begin(file, mapping, pos, len, flags, pagep, fsdata);
+}
+
+
+//qifs_write_end
+static int  qifs_write_end(struct file *file, struct address_space *mapping,
+                                 loff_t pos, unsigned len, unsigned copied,
+                                 struct page *page, void *fsdata)
+{
+    printk(KERN_INFO "qifs: qifs_write_end\n");
+    return simple_write_end(file, mapping, pos, len, copied, page, fsdata);
+}
+
+
 static struct address_space_operations qifs_aops =
 {
-//    .readpage   = qifs_readpage,  //need to define
-      .readpage       = simple_readpage,    
-      .write_begin    = simple_write_begin,
-      .write_end      = simple_write_end,
+    .readpage    = qifs_readpage,       //need to define
+    .write_begin = qifs_write_begin,    //need to define
+    .write_end   = qifs_write_end,      // need to define
+//      .readpage       = simple_readpage,    
+//      .write_begin    = simple_write_begin,
+//      .write_end      = simple_write_end,
 };
 
 
@@ -168,10 +200,12 @@ static struct address_space_operations qifs_aops =
 //file operations for file
 static struct file_operations qifs_file_operations =
 {
-    .open       = qifs_file_open,
-    .read       = do_sync_read,
+//    .open       = qifs_file_open,
+//    .read       = do_sync_read,
+    .read       = qifs_file_read,
     .aio_read   = generic_file_aio_read,
-    .write      = do_sync_write,
+//    .write      = do_sync_write,
+    .write      = qifs_file_write,
     .aio_write  = generic_file_aio_write,
     .mmap       = generic_file_mmap,
     .llseek     = generic_file_llseek,            //all generic function
