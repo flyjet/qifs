@@ -1,3 +1,17 @@
+/*
+ * filesys/src/qifs.c
+ * 
+ * Created on: Apr 05, 2013
+ * Author: Qi Cao
+ *
+ * Team 7 file system, Kernel Module part.
+ * A basic linux filesystem module
+ *
+ * Runs on Linux Ubuntu kernels 3.2.0
+ *
+ */
+
+
 #include <linux/module.h>	/* Needed by all modules */
 #include <linux/kernel.h>	/* Needed for KERN_INFO */
 #include <linux/init.h>	    /* Needed for the macros */
@@ -14,7 +28,6 @@
 
 #include <asm/atomic.h>
 #include <asm/uaccess.h>    /*copy to user*/
-
 
 MODULE_LICENSE("GPL");
 
@@ -42,26 +55,20 @@ static struct inode *qifs_get_inode(struct super_block *sb, int mode, dev_t dev)
 
 static int qifs_mknod(struct inode *dir, struct dentry *dentry, int mode, dev_t dev);
 static int qifs_mkdir(struct inode *dir, struct dentry *dentry, int mode);
-/*
-//qifs_read, return a pointer to a buffer containing at least LEN bytes of filesystem starting at byte offset OFFSET into the filesystem.
-
-static void *qifs_read(struct super_block *sb, unsigned int offset, unsigned int len)
-{
-
-}
-*/
-
 
 
 //qifs_file_open
-//static int qifs_file_open(struct inode *inode, struct file *filp)
-//{
-//	    return generic_file_open(inode, filp);
-//}
+static int qifs_file_open(struct inode *inode, struct file *filp)
+{
+	printk(KERN_INFO "qifs: qifs_file_open \n");    
+    return generic_file_open(inode, filp);
+}
 
 
 
 //qifs_file_read
+//return a pointer to a buffer containing at least LEN bytes of filesystem
+//starting at byte offset OFFSET into the filesystem.
 static ssize_t qifs_file_read(struct file *filp, char *buf,
 	 	                 size_t count, loff_t *offset)
 {
@@ -97,6 +104,7 @@ static struct dentry *qifs_lookup(struct inode *dir, struct dentry *dentry,
 {
     printk(KERN_INFO "qifs: qifs_lookup\n");
     return simple_lookup(dir, dentry, nd);
+
 /*    struct qifs_sb_info  *isb = dir->i_sb->s_fs_info;
     if(dentry->d.name.len > NAME_MAX)   // NAME_MAX, 255 chars in a file name 
         return ERR_PTR(-ENAMETOOLONG);
@@ -209,16 +217,16 @@ static struct backing_dev_info qifs_backing_dev_info=
 //file operations for file
 static struct file_operations qifs_file_operations =
 {
-//    .open       = qifs_file_open,
-//    .read       = do_sync_read,
+    .open       = qifs_file_open,
     .read       = qifs_file_read,
     .aio_read   = generic_file_aio_read,
+//    .read       = do_sync_read,
 //    .write      = do_sync_write,
     .write      = qifs_file_write,
     .aio_write  = generic_file_aio_write,
     .mmap       = generic_file_mmap,
     .llseek     = generic_file_llseek,            //all generic function
-
+    .fsync      = generic_file_fsync,
 };    
 
 
@@ -261,10 +269,8 @@ static struct inode_operations qifs_dir_inode_ops =
 //When we make a file or directory, we need an inode to represent it.
 //The parameter "mode", tells the it is dirctory or file
 
-static struct inode* qifs_get_inode(struct super_block *sb, int mode, dev_t dev)
-{
-    
-    
+static struct inode *qifs_get_inode(struct super_block *sb, int mode, dev_t dev)
+{   
     struct inode *ret = new_inode (sb);     //generic function
     if (ret)
     {
@@ -314,6 +320,7 @@ static void qifs_put_super(struct super_block *sb)
 {
     kfree(sb->s_fs_info);
     sb->s_fs_info = NULL;
+    return;
 }
 
 
@@ -359,8 +366,7 @@ static int qifs_fill_super (struct super_block *sb,
     }    
     printk(KERN_INFO  "qifs:sb->s _fs_info allocate good\n");   //For debug
 
-    sbi = sb->s_fs_info; 
-
+    sbi = sb->s_fs_info;
 //conjure up an inode to represent the root directory of FS.
 	root = qifs_get_inode(sb, S_IFDIR | 0755, 0);        // need to define
     if (!root)
