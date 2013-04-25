@@ -473,6 +473,9 @@ static int __init init_qi_fs(void)
 //exit module
 static void __exit exit_qi_fs(void)
 {
+//  printk(KERN_INFO "qifs: exit socket\n");
+//  socket_release(nl_sk->sk_socket);
+
     printk(KERN_INFO "qifs: exit  qifs  \n");
     unregister_filesystem(& qi_fs_type);
 }
