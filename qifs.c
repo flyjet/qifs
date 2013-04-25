@@ -5,9 +5,18 @@
  * Author: Qi Cao
  *
  * Team 7 file system, Kernel Module part.
- * A basic linux filesystem module
+ * A basic linux filesystem module, after mounted, it can 
+ * perform some directory operations, like mkdir, rmdir 
+ * and file operations like create, open, read, write, 
+ * close, and delete. 
  *
- * Runs on Linux Ubuntu kernels 3.2.0
+ * Runs and test on Linux Ubuntu kernels 3.2.0
+ *
+ * Since it is only basic version, so most file_operations call 
+ * the generic function in kernel.
+ *
+ * Later, after connection module finished, all operations should 
+ * go to user space to be implemented.
  *
  */
 
@@ -21,20 +30,21 @@
 #include <linux/string.h>
 #include <linux/vfs.h>
 #include <linux/slab.h>
-
 #include <linux/backing-dev.h>
-
 #include <linux/pagemap.h>  /*PAGE_CACHE_SIZE*/
-
 #include <asm/atomic.h>
 #include <asm/uaccess.h>    /*copy to user*/
 
-MODULE_LICENSE("GPL");
+/* for netlink socket
+#include <linux/netlink.h>
+#include <net/sock.h>
+#include <net/net_namespace.h>
+*/
 
+MODULE_LICENSE("GPL");
 
 //QIFS_MAGIC
 #define QIFS_MAGIC 0x71696673 
-
 
 struct qifs_sb_info
 {
@@ -56,6 +66,42 @@ static struct inode *qifs_get_inode(struct super_block *sb, int mode, dev_t dev)
 static int qifs_mknod(struct inode *dir, struct dentry *dentry, int mode, dev_t dev);
 static int qifs_mkdir(struct inode *dir, struct dentry *dentry, int mode);
 
+/* The following is part of code for Netlink Socket, need to be finished
+#define NETLINK_QI 22
+static struct sock *nl_sk = NULL;
+
+static void mysend_msg(struct nlmsghdr *nlh)
+{
+    int pid = nlh->nlmsg_pid;
+    struct sk_buff *skb_out;
+    char *mymsg;
+    int mymsg_size;
+    //init skb_out
+    skb_out = nlmsg_new(mymsg_size, 0);
+    nlh = nlmsg_put(skb_out, 0, 0, NLMSG_DONE, mymsg_size, 0);
+    
+    nlmsg_unicast(nl_sk, skb_out, pid); 
+}
+
+//get ready to received message
+staitc void nl_data_ready (struct sk_buff *skb)
+{
+    struct nlmsghdr *nlh = NULL;
+    if(skb == NULL)
+    {
+        printk("skb is NULL \n");
+        return;
+    }
+    nlh = (struct nlmsghdr *)skb->data;
+    printk(KERN_INFO "%s: received netlink message :%s \n, __FUNCTION__, NLMSG_DATA(nlh));
+
+    mysend_msg(nlh);
+}
+
+*/
+
+
+//file_opeartions  are following
 
 //qifs_file_open
 static int qifs_file_open(struct inode *inode, struct file *filp)
@@ -65,12 +111,11 @@ static int qifs_file_open(struct inode *inode, struct file *filp)
 }
 
 
-
 //qifs_file_read
-//return a pointer to a buffer containing at least LEN bytes of filesystem
+//return a poddinter to a buffer containing at least LEN bytes of filesystem
 //starting at byte offset OFFSET into the filesystem.
 static ssize_t qifs_file_read(struct file *filp, char *buf,
-	 	                 size_t count, loff_t *offset)
+             	 	                 size_t count, loff_t *offset)
 {
    printk(KERN_INFO "qifs: qifs_do_sync_read \n");
    return do_sync_read(filp, buf, count, offset);
@@ -78,25 +123,22 @@ static ssize_t qifs_file_read(struct file *filp, char *buf,
 
 //qifs_file_write
 static ssize_t qifs_file_write(struct file *filp, const char *buf,
-		size_t count, loff_t *offset)
+            		size_t count, loff_t *offset)
 {
-
    printk(KERN_INFO "qifs: qifs_do_sync_write \n");
    return do_sync_write(filp, buf, count, offset);
 }
 
-
-
 /*
 //qifs_dentry_ops
-
 static struct dentry_operations qifs_dentry_ops =
 {
-
     .d_delete = simple_delete_dentry,
 }    
 */
 
+
+//inode_operations are following
 //qifs_lookup
 //Lookup the data, if the dentry didn't already exist, it must be negative. 
 static struct dentry *qifs_lookup(struct inode *dir, struct dentry *dentry,
@@ -116,9 +158,8 @@ static struct dentry *qifs_lookup(struct inode *dir, struct dentry *dentry,
 
 }
 
-
-
 //qifs_create
+//create a file
 static int qifs_create(struct inode *dir, struct dentry *dentry, int mode, struct nameidata *nd)
 {
     printk(KERN_INFO "qifs: qifs_create\n");
@@ -126,9 +167,7 @@ static int qifs_create(struct inode *dir, struct dentry *dentry, int mode, struc
 }    
 
 
-
 //qifs_mknod
-
 static int qifs_mknod(struct inode *dir, struct dentry *dentry, int mode, dev_t dev)
 {
     struct inode *inode = qifs_get_inode(dir->i_sb, mode,dev); 
@@ -154,7 +193,7 @@ static int qifs_mknod(struct inode *dir, struct dentry *dentry, int mode, dev_t 
 
 
 //qifs_mkdir
-
+//create a dir
 static int qifs_mkdir(struct inode *dir, struct dentry *dentry, int mode)
 {
     printk(KERN_INFO "qifs: qifs_mkdir\n");
@@ -173,7 +212,7 @@ static int qifs_readpage(struct file *file, struct page *page)
     return simple_readpage(file, page);
 }
 
-
+//address_space_operations are following
 //qifs_write_begin
 static int qifs_write_begin(struct file *file, struct address_space *mapping,
                                  loff_t pos, unsigned len, unsigned flags,
@@ -199,9 +238,6 @@ static struct address_space_operations qifs_aops =
     .readpage    = qifs_readpage,       //need to define
     .write_begin = qifs_write_begin,    //need to define
     .write_end   = qifs_write_end,      // need to define
-//      .readpage       = simple_readpage,    
-//      .write_begin    = simple_write_begin,
-//      .write_end      = simple_write_end,
 };
 
 
@@ -367,6 +403,7 @@ static int qifs_fill_super (struct super_block *sb,
     printk(KERN_INFO  "qifs:sb->s _fs_info allocate good\n");   //For debug
 
     sbi = sb->s_fs_info;
+
 //conjure up an inode to represent the root directory of FS.
 	root = qifs_get_inode(sb, S_IFDIR | 0755, 0);        // need to define
     if (!root)
@@ -377,7 +414,6 @@ static int qifs_fill_super (struct super_block *sb,
 
     printk(KERN_INFO "qifs: to alloc root inode \n");
 
-//    root->i_op = & simple_dir_inode_operations;
     root->i_op  = & qifs_dir_inode_ops;
     root->i_fop = & simple_dir_operations;
     
@@ -424,8 +460,14 @@ static struct file_system_type qi_fs_type =
 //init module
 static int __init init_qi_fs(void)
 {
+//  printk(KERN_INFO "qifs: init netlink socket \n");
+//  init a netlink socket
+//  nl_sl = netlink_kernel_create(&init_net,NETLINK_QI, 0, nl_data_ready, NULL, THIS_MODULE);    
+    
     printk(KERN_INFO "qifs: init qifs  \n");
     return register_filesystem(& qi_fs_type);     //qi_fs_type need to define
+
+
 }
 
 //exit module
