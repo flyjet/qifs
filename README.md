@@ -1,4 +1,4 @@
-it is team 7 file system, kernel module part.
+it is OS class project for file system, kernel module part.
 
 This module can work independently, after mounted, it can perform some directory operations, like mkdir, rmdir and file operations like create, open, read, write, close, and delete.
 
